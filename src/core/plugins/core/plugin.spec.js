@@ -1,11 +1,13 @@
 process.argv = [null, null, "-vv"];
 const mainEvent = { emit: jest.fn() };
 const log = { error: jest.fn(), debug: jest.fn(), info: jest.fn() };
+const asarLibs = require("../../helpers/asarLibs.js");
 beforeEach(() => {
   mainEvent.emit.mockReset();
   log.error.mockReset();
   log.debug.mockReset();
   log.info.mockReset();
+  asarLibs.unpack.mockReset();
 });
 
 const { download, checkFile } = require("progressive-downloader");
@@ -209,11 +211,48 @@ describe("core plugin", () => {
   });
 
   describe("action__unpack()", () => {
-    it("should unpack", () =>
-      core.action__unpack({
-        group: "firmware",
-        files: [{ archive: "a.zip", dir: "a" }]
-      })); // TODO add assertions
+    it("should unpack to a child directory called 'unpacked'", () => {
+      jest
+        .spyOn(mainEvent, "emit")
+        .mockImplementation((e, f, g, cb) => (cb ? cb() : null));
+      jest.spyOn(asarLibs, "unpack").mockResolvedValue();
+      core
+        .action__unpack({
+          group: "firmware",
+          files: [{ archive: "a.zip", dir: "unpacked" }]
+        })
+        .then(() => {
+          expect(asarLibs.unpack).toHaveBeenCalledTimes(1);
+          expect(asarLibs.unpack).toHaveBeenCalledWith(
+            "a/yggdrasil/firmware/a.zip",
+            "a/yggdrasil/firmware/unpacked",
+            expect.any(Function)
+          );
+          expect(mainEvent.emit).toHaveBeenCalledTimes(3);
+          asarLibs.unpack.mockClear();
+        });
+    });
+    it("should unpack to directory where archive is located", () => {
+      jest
+        .spyOn(mainEvent, "emit")
+        .mockImplementation((e, f, g, cb) => (cb ? cb() : null));
+      jest.spyOn(asarLibs, "unpack").mockResolvedValue();
+      core
+        .action__unpack({
+          group: "firmware",
+          files: [{ archive: "a.zip" }]
+        })
+        .then(() => {
+          expect(asarLibs.unpack).toHaveBeenCalledTimes(1);
+          expect(asarLibs.unpack).toHaveBeenCalledWith(
+            "a/yggdrasil/firmware/a.zip",
+            "a/yggdrasil/firmware",
+            expect.any(Function)
+          );
+          expect(mainEvent.emit).toHaveBeenCalledTimes(3);
+          asarLibs.unpack.mockClear();
+        });
+    });
   });
 
   describe("action__manual_download()", () => {
